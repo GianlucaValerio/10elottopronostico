@@ -478,26 +478,54 @@ function renderPredictions(){
 function renderPatterns(){
   const p=state.patterns;
   const el=document.getElementById('patterns-content');
-  if(!p||p.message){
-    el.innerHTML=`<p style="color:var(--muted)">${p?.message||'Nessun dato'}</p>`;return;
-  }
+  if(!p||p.message){el.innerHTML=`<p style="color:var(--muted)">${p?.message||'Nessun dato'}</p>`;return;}
+
+  const roiColor = p.roi>=0?'var(--grn)':'var(--red)';
+  const roiSign  = p.roi>=0?'+':'';
+
   el.innerHTML=`
     <h2>🧠 Pattern identificati</h2>
     <div class="sc-row">
       <div class="sc"><div class="lb">Previsioni validate</div><div class="vl">${p.totalPredictions||0}</div></div>
       <div class="sc"><div class="lb">Win rate</div><div class="vl">${p.winRate||0}%</div></div>
-      <div class="sc"><div class="lb">Totale vinto</div><div class="vl" style="color:var(--acc)">${fmtEur(p.totalWon||0)}</div></div>
-      <div class="sc"><div class="lb">Max perdite consecutive</div><div class="vl" style="color:${(p.maxLossStreak||0)>5?'var(--red)':'var(--muted)'}">${p.maxLossStreak||0}</div></div>
+      <div class="sc"><div class="lb">Totale vinto</div><div class="vl" style="color:var(--acc)">€${p.totalWon||0}</div></div>
+      <div class="sc"><div class="lb">Totale speso (ext.)</div><div class="vl" style="color:var(--muted)">€${p.totalCost||0}</div></div>
+      <div class="sc"><div class="lb">Profitto netto</div><div class="vl" style="color:${p.netProfit>=0?'var(--grn)':'var(--red)'}">€${p.netProfit||0}</div></div>
+      <div class="sc"><div class="lb">ROI</div><div class="vl" style="color:${roiColor}">${roiSign}${p.roi||0}%</div></div>
     </div>
-    ${p.patterns?.length?`
-    <div style="margin-bottom:14px">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Pattern rilevati:</div>
-      ${p.patterns.map(pt=>`<div style="padding:7px 11px;background:var(--bg);border-radius:var(--r);margin-bottom:5px;font-size:13px">${pt}</div>`).join('')}
+
+    ${p.byTypeSize&&Object.keys(p.byTypeSize).length?`
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">ROI per tipo e dimensione:</div>
+    <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:14px">
+      ${Object.values(p.byTypeSize).sort((a,b)=>b.roi-a.roi).map(r=>{
+        const typeLabel=r.type==='cluster'
+          ?`<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 5px;border-radius:3px;margin-right:4px">cluster</span>`
+          :`<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 5px;border-radius:3px;margin-right:4px">std</span>`;
+        const roiC=r.roi>=0?'var(--grn)':'var(--red)';
+        const sign=r.roi>=0?'+':'';
+        return`<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg);border-radius:var(--r);font-size:12px;flex-wrap:wrap">
+          ${typeLabel}
+          <span style="font-weight:600;min-width:20px">${r.played}n</span>
+          <span style="color:var(--muted)">${r.count} prev.</span>
+          <span>Win: <strong>${r.winRate}%</strong></span>
+          <span>Vinto: <strong>€${r.totalWin}</strong></span>
+          <span>Speso: <strong>€${r.totalCost}</strong></span>
+          <span style="color:${roiC};font-weight:600">ROI: ${sign}${r.roi}%</span>
+          <span style="color:${r.netProfit>=0?'var(--grn)':'var(--red)'}">Netto: €${r.netProfit}</span>
+        </div>`;
+      }).join('')}
     </div>`:''}
+
+    ${p.patterns?.length?`
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Pattern rilevati:</div>
+    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px">
+      ${p.patterns.map(pt=>`<div style="padding:8px 12px;background:var(--bg);border-radius:var(--r);font-size:13px">${pt}</div>`).join('')}
+    </div>`:''}
+
     ${p.bestNums?.length?`
     <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Numeri più redditizi nelle combo vincenti:</div>
     <div class="combo">${p.bestNums.map(n=>`<div class="num-circle amb">${n}</div>`).join('')}</div>`:''}
-    ${p.bestHour!=null?`<div style="font-size:13px;margin-top:10px">📅 Fascia oraria con più vincite storiche: <strong>${p.bestHour}:xx</strong></div>`:''}`;
+    ${p.bestHour!=null?`<div style="font-size:13px;margin-top:12px">📅 Fascia oraria con più vincite: <strong>${p.bestHour}:xx</strong></div>`:''}`;
 }
 
 // ── GIOCATE ────────────────────────────────────────────────
