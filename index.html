@@ -295,6 +295,7 @@ function renderDashboard(){
 
   if (hasPreds) {
     const clPreds = s.clusterPredictions || {};
+    const fPreds  = s.fasciaPredictions  || {};
     const clActive = s.clusterActive;
 
     pdiv.innerHTML = `
@@ -330,7 +331,25 @@ function renderDashboard(){
           </div>
           <button onclick="addGiocataFromCluster(${sz})" style="font-size:11px;padding:3px 10px;margin-top:6px;background:var(--red-bg);border-color:var(--red);color:var(--red)">📒 Registra cluster ${sz}n</button>
         </div>`;
-      }).join('')}` : clActive ? '<div style="font-size:12px;color:var(--muted)">Numeri cluster insufficienti per la previsione.</div>' : ''}
+      }).join('')}` : ''}
+
+      ${Object.values(fPreds||{}).some(p=>p?.combo) ? `
+      <div style="font-size:13px;font-weight:500;margin:12px 0 8px;color:var(--grn)">🎯 Previsioni Fascia (numeri in zona di ritorno)</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
+        Numeri in fascia media su finestra corta (5 est.) e lunga (200 est.) — né caldi né freddi.
+        Candidati totali: ${fPreds[5]?.fasciaInfo?.totalCandidates||fPreds[4]?.fasciaInfo?.totalCandidates||'?'}
+      </div>
+      ${sizes.map(sz => {
+        const p = fPreds[sz];
+        if (!p?.combo) return '';
+        return `<div style="margin-bottom:12px;padding:10px;background:var(--green-bg);border:.5px solid var(--grn);border-radius:var(--r)">
+          <div style="font-size:12px;font-weight:600;color:var(--grn);margin-bottom:6px">${sz} numeri · fascia</div>
+          <div class="combo">
+            ${p.combo.map(n=>`<div class="num-circle grn">${n}</div>`).join('')}
+          </div>
+          <button onclick="addGiocataFromFascia(${sz})" style="font-size:11px;padding:3px 10px;margin-top:6px;background:var(--green-bg);border-color:var(--grn);color:var(--grn)">📒 Registra fascia ${sz}n</button>
+        </div>`;
+      }).join('')}` : ''}
 
       <div style="font-size:11px;color:var(--muted);margin-top:8px">
         🟢 bordo verde = numero presente anche nei cluster storici
@@ -460,6 +479,8 @@ function renderPredictions(){
     const szCol={4:'var(--acc)',5:'var(--grn)',6:'var(--amb)'}[p.played]||'var(--muted)';
     const typeLabel=p.type==='cluster'
       ?`<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 5px;border-radius:3px">cluster</span>`
+      :p.type==='fascia'
+      ?`<span style="font-size:10px;background:var(--green-bg);color:var(--grn);padding:1px 5px;border-radius:3px">fascia</span>`
       :`<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 5px;border-radius:3px">std</span>`;
     return`<tr>
       <td style="font-size:11px;color:var(--muted)">${new Date(p.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
@@ -570,6 +591,23 @@ function addGiocataFromSize(size){
   renderGiocate();
   tab('giocate');
   alert(`✅ Registrata giocata ${size}n: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
+}
+
+function addGiocataFromFascia(size){
+  const fPreds = state.status.fasciaPredictions||{};
+  const pred = fPreds[size];
+  if(!pred?.combo){alert('Nessuna previsione fascia '+size+'n disponibile');return;}
+  const lastDraw=state.draws[0];
+  localGiocate.unshift({
+    id:Date.now(),ts:new Date().toISOString(),
+    nums:pred.combo,extId:pred.targetExtId,
+    lastKnownId:lastDraw?.id||0,lastKnownDateKey:lastDraw?.dateKey||null,
+    stato:'pending',hBase:[],hExtra:[],win:0,fonte:'fascia-pred-'+size+'n'
+  });
+  saveLocalGiocate();
+  renderGiocate();
+  tab('giocate');
+  alert(`✅ Registrata giocata fascia ${size}n: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
 }
 
 function addGiocataFromCluster(size){
