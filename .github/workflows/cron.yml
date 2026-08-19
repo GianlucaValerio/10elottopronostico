@@ -1,0 +1,22 @@
+name: 10eLotto Cron
+
+on:
+  schedule:
+    # Ogni 5 minuti (GitHub Actions minimo garantito)
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # permette trigger manuale
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Worker Cron
+        run: |
+          HTTP_STATUS=$(curl -s -o /tmp/resp.json -w "%{http_code}" \
+            "https://delicate-unit-036a.gianluca-valerio1511.workers.dev?action=cron&secret=lotto2026secret")
+          echo "HTTP Status: $HTTP_STATUS"
+          cat /tmp/resp.json
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Worker returned error $HTTP_STATUS"
+            exit 1
+          fi

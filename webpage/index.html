@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10eLotto — Previsioni Live</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f7f7f5;--card:#fff;--border:rgba(0,0,0,.09);--borders:rgba(0,0,0,.17);
+  --text:#0b0b0b;--muted:#696966;
+  --acc:#2a78d6;--acc-bg:#e6f1fb;--acc-dk:#185fa5;
+  --grn:#1a9e6e;--grn-bg:#e4f5ed;
+  --amb:#b07010;--amb-bg:#fdf3d8;
+  --red:#b03030;--red-bg:#fdeaea;
+  --gld:#b08000;--gld-bg:#fff5cc;
+  --r:8px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6}
+.app{max-width:1080px;margin:0 auto;padding:20px 14px 60px}
+.hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.hdr h1{font-size:20px;font-weight:500}
+.hdr-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.sbar{display:flex;align-items:center;gap:10px;background:var(--card);border:.5px solid var(--border);border-radius:var(--r);padding:9px 14px;margin-bottom:16px;font-size:13px;flex-wrap:wrap}
+.dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.dok{background:#22c55e}.dwrn{background:#f59e0b;animation:pulse 1s infinite}.derr{background:#ef4444}.didle{background:var(--muted)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.smsg{color:var(--muted);flex:1}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:18px;overflow-x:auto}
+.tab{padding:8px 16px;font-size:14px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.tab.on{color:var(--acc);border-bottom-color:var(--acc);font-weight:500}
+.pane{display:none}.pane.on{display:block}
+.box{background:var(--card);border:.5px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+.box h2{font-size:16px;font-weight:500;margin-bottom:12px}
+.box h3{font-size:14px;font-weight:500;margin-bottom:10px}
+.sc-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+.sc{background:var(--bg);border:.5px solid var(--border);border-radius:var(--r);padding:10px 13px}
+.sc .lb{font-size:11px;color:var(--muted);margin-bottom:3px}
+.sc .vl{font-size:20px;font-weight:500}
+.info{font-size:12px;color:var(--muted);background:var(--bg);border-left:3px solid var(--borders);border-radius:0 var(--r) var(--r) 0;padding:9px 13px;margin-bottom:14px}
+/* Combo display */
+.combo{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.num-circle{width:44px;height:44px;border-radius:50%;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600}
+.num-circle.grn{background:var(--grn)}
+.num-circle.amb{background:var(--amb)}
+.num-circle.red{background:var(--red)}
+/* Pills */
+.pills{display:flex;flex-wrap:wrap;gap:3px}
+.pill{font-size:11px;font-weight:500;padding:2px 6px;border-radius:999px}
+.pb{background:var(--acc-bg);color:var(--acc-dk)}
+.pe{background:var(--grn-bg);color:var(--grn)}
+.pm{background:var(--red-bg);color:var(--red)}
+/* Freq grid */
+.ngrid{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin-bottom:18px}
+.nc{border:.5px solid var(--border);border-radius:var(--r);padding:4px 2px;text-align:center;font-size:11px;cursor:default}
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;padding:7px 9px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:500;white-space:nowrap}
+td{padding:6px 9px;border-bottom:.5px solid var(--border);vertical-align:middle}
+tr:last-child td{border:none}
+tr:hover td{background:var(--bg)}
+.w0{color:var(--muted)}.w1{color:var(--amb)}.w2{color:var(--grn);font-weight:500}.w3{color:var(--acc);font-weight:600}.w4{color:var(--gld);font-weight:700}
+/* Badge cluster */
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:3px 10px;border-radius:999px}
+.badge-red{background:var(--red-bg);color:var(--red)}
+.badge-amb{background:var(--amb-bg);color:var(--amb)}
+.badge-grn{background:var(--grn-bg);color:var(--grn)}
+.badge-muted{background:var(--bg);color:var(--muted);border:.5px solid var(--border)}
+/* Giocata form */
+button{font-size:13px;padding:6px 14px;border:.5px solid var(--borders);border-radius:var(--r);background:var(--card);color:var(--text);cursor:pointer}
+button:hover{background:var(--bg)}
+button.pri{background:var(--acc);color:#fff;border-color:var(--acc)}
+button.pri:hover{background:var(--acc-dk)}
+select,input[type=text],input[type=number]{font-size:13px;padding:5px 9px;border:.5px solid var(--borders);border-radius:var(--r);background:var(--card);color:var(--text)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+/* Refresh countdown */
+.cntd{font-size:12px;color:var(--muted)}
+.cntd strong{color:var(--acc)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--acc);border-radius:50%;animation:rot .55s linear infinite;vertical-align:middle}
+@keyframes rot{to{transform:rotate(360deg)}}
+@media(max-width:560px){.sc-row{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="hdr">
+    <div>
+      <h1>🎯 10eLotto — Previsioni Live</h1>
+      <div class="hdr-sub">Aggiornato automaticamente ogni 5 minuti via Cloudflare Worker</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="cntd" id="cntd"></div>
+      <button class="pri" onclick="loadAll()">↻ Aggiorna</button>
+    </div>
+  </div>
+
+  <div class="sbar">
+    <div class="dot didle" id="sdot"></div>
+    <div class="smsg" id="smsg">Caricamento...</div>
+    <div style="font-size:11px;color:var(--muted)" id="stime"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" onclick="tab('dashboard')">🏠 Dashboard</button>
+    <button class="tab"    onclick="tab('freq')">📊 Frequenze</button>
+    <button class="tab"    onclick="tab('history')">📋 Estrazioni</button>
+    <button class="tab"    onclick="tab('predictions')">🔮 Previsioni</button>
+    <button class="tab"    onclick="tab('patterns')">🧠 Pattern</button>
+    <button class="tab"    onclick="tab('giocate')">📒 Giocate</button>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="pane on" id="pane-dashboard">
+    <div class="box" id="dash-prediction">
+      <h2>🔮 Previsione per la prossima estrazione</h2>
+      <div id="dash-pred-content"><span class="spin"></span> Caricamento...</div>
+    </div>
+    <div class="box" id="dash-cluster">
+      <h2>🔴 Stato Cluster</h2>
+      <div id="dash-cluster-content"><span class="spin"></span> Caricamento...</div>
+    </div>
+    <div class="box">
+      <h2>📊 Ultima estrazione</h2>
+      <div id="dash-last-draw"><span class="spin"></span></div>
+    </div>
+    <div class="box">
+      <h2>📈 Risultato ultima previsione</h2>
+      <div id="dash-last-result"><span class="spin"></span></div>
+    </div>
+  </div>
+
+  <!-- FREQUENZE -->
+  <div class="pane" id="pane-freq">
+    <div class="box">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <label>Finestra: <strong id="freq-n">10</strong> est.</label>
+        <input type="range" id="freq-slider" min="1" max="50" value="10" oninput="renderFreq(this.value)" style="accent-color:var(--acc);width:110px">
+        <label>Mostra: <select id="freq-mode" onchange="renderFreq()">
+          <option value="mixed" selected>Misto (Base×2+Extra)</option>
+          <option value="base">Solo Base</option>
+          <option value="extra">Solo Extra</option>
+        </select></label>
+      </div>
+      <div class="ngrid" id="ngrid"></div>
+    </div>
+  </div>
+
+  <!-- ESTRAZIONI -->
+  <div class="pane" id="pane-history">
+    <div class="box">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px">
+        <label>Mostra ultime: <select id="hist-n" onchange="renderHistory()">
+          <option value="10">10</option><option value="20" selected>20</option>
+          <option value="50">50</option><option value="100">100</option>
+        </select></label>
+      </div>
+      <div class="tbl-wrap"><table id="hist-table">
+        <thead><tr><th>#</th><th>Data</th><th>Ora</th><th>Base (20)</th><th>Extra (15)</th></tr></thead>
+        <tbody id="hist-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- PREVISIONI -->
+  <div class="pane" id="pane-predictions">
+    <div class="info">Ogni riga è una previsione calcolata dal Worker prima di conoscere l'estrazione. Il risultato viene validato automaticamente.</div>
+    <div class="box">
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Data</th><th>Combo giocata</th><th>Target est.</th><th>Base ✓</th><th>Extra ✓</th><th>Vincita</th></tr></thead>
+        <tbody id="pred-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <!-- PATTERN -->
+  <div class="pane" id="pane-patterns">
+    <div class="box" id="patterns-content">
+      <span class="spin"></span> Caricamento...
+    </div>
+  </div>
+
+  <!-- GIOCATE -->
+  <div class="pane" id="pane-giocate">
+    <div class="box">
+      <h2>➕ Registra giocata reale</h2>
+      <div class="row">
+        <label>Numeri: <input type="text" id="gio-nums" placeholder="es. 5 18 31 43" style="width:160px"></label>
+        <label>N° estrazioni: <select id="gio-n">
+          <option value="1">1</option><option value="2" selected>2</option>
+          <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+        </select></label>
+        <button class="pri" onclick="addGiocata()">➕ Aggiungi</button>
+      </div>
+      <div id="gio-info" style="font-size:12px;color:var(--muted)"></div>
+    </div>
+    <div class="box">
+      <h2>📋 Storico giocate reali</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Data</th><th>Numeri</th><th>Est.</th><th>Base ✓</th><th>Extra ✓</th><th>Vincita</th></tr></thead>
+        <tbody id="gio-body"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const WORKER = 'https://delicate-unit-036a.gianluca-valerio1511.workers.dev';
+const SECRET = 'lotto2026secret';
+
+let state = { draws:[], predictions:[], patterns:{}, status:{} };
+let cdTimer = null;
+
+// ── FETCH ──────────────────────────────────────────────────
+async function apiFetch(action, params='') {
+  const r = await fetch(`${WORKER}?action=${action}${params}`);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function loadAll() {
+  setStatus('warn','Caricamento...');
+  document.getElementById('sdot').className='dot dwrn';
+  try {
+    const [status, draws, preds, patterns] = await Promise.all([
+      apiFetch('status'),
+      apiFetch('history','&n=200'),
+      apiFetch('predictions','&n=100'),
+      apiFetch('patterns'),
+    ]);
+    state = { draws, predictions:preds, patterns, status };
+
+    const d = draws[0];
+    setStatus('ok', `${draws.length} estrazioni · ultima #${d?.id} ore ${d?.time} (${d?.date})`);
+    document.getElementById('stime').textContent = 'agg. ' + new Date().toLocaleTimeString('it-IT');
+
+    renderDashboard();
+    renderFreq();
+    renderHistory();
+    renderPredictions();
+    renderPatterns();
+    renderGiocate();
+    startCountdown();
+  } catch(e) {
+    setStatus('err','Errore: ' + e.message);
+    document.getElementById('sdot').className='dot derr';
+  }
+}
+
+function setStatus(type,msg){
+  const cls={ok:'dok',err:'derr',warn:'dwrn',idle:'didle'};
+  document.getElementById('sdot').className='dot '+(cls[type]||'didle');
+  document.getElementById('smsg').textContent=msg;
+}
+
+function startCountdown(){
+  clearInterval(cdTimer);
+  let sec=300;
+  cdTimer=setInterval(()=>{
+    sec--;
+    const m=Math.floor(sec/60),s=sec%60;
+    document.getElementById('cntd').innerHTML=`prossimo: <strong>${m}:${s.toString().padStart(2,'0')}</strong>`;
+    if(sec<=0){clearInterval(cdTimer);loadAll();}
+  },1000);
+}
+
+// ── TABS ───────────────────────────────────────────────────
+function tab(name){
+  const ns=['dashboard','freq','history','predictions','patterns','giocate'];
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',ns[i]===name));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById('pane-'+name).classList.add('on');
+}
+
+// ── HELPERS ────────────────────────────────────────────────
+function fmtEur(v){if(!v)return'—';if(v>=1000000)return'€'+(v/1000000).toFixed(1)+'M';if(v>=1000)return'€'+(v/1000).toFixed(0)+'k';return'€'+v;}
+function pillsB(nums){return nums.map(n=>`<span class="pill pb">${n}</span>`).join(' ')||'—';}
+function pillsE(nums){return nums.map(n=>`<span class="pill pe">${n}</span>`).join(' ')||'—';}
+function pillsM(nums){return nums.map(n=>`<span class="pill pm">${n}</span>`).join(' ')||'—';}
+function circles(nums,cls=''){return nums.map(n=>`<div class="num-circle ${cls}">${n}</div>`).join('');}
+
+// ── DASHBOARD ──────────────────────────────────────────────
+function renderDashboard(){
+  const s = state.status;
+  const pred = s.prediction || state.predictions[0];
+  const cluster = s.cluster || pred?.cluster;
+
+  // Previsione
+  const pdiv = document.getElementById('dash-pred-content');
+  if (pred?.combo) {
+    const clusterNums = cluster?.clusterNums||[];
+    pdiv.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+        Combinazione da giocare per est. <strong>#${pred.targetExtId||'?'}</strong>
+        — calcolata con lookBack ${pred.opts?.lookBack||10}, pool top-${pred.opts?.poolSize||15}
+      </div>
+      <div class="combo">${pred.combo.map(n=>{
+        const isCluster=clusterNums.includes(n);
+        return `<div class="num-circle ${isCluster?'grn':''}" title="${isCluster?'numero cluster':''}">${n}</div>`;
+      }).join('')}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">
+        🟢 = anche nei numeri cluster &nbsp;·&nbsp;
+        Pool: ${(pred.pool||[]).join(', ')}
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="addGiocataFromPred()" class="pri">📒 Registra come giocata reale</button>
+        <button onclick="tab('predictions')">📋 Storico previsioni</button>
+      </div>`;
+  } else {
+    pdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Nessuna previsione disponibile — attendi il primo ciclo del Worker.</p>';
+  }
+
+  // Cluster
+  const cdiv = document.getElementById('dash-cluster-content');
+  if (cluster) {
+    const statusMap = {
+      active:   ['badge-red','🔴','FINESTRA ATTIVA — momento potenzialmente buono per giocare'],
+      imminent: ['badge-amb','🟠','Finestra imminente — prossimo cluster tra ~'+cluster.nextEst+' estrazioni'],
+      waiting:  ['badge-grn','🟢','Fuori finestra — prossimo cluster tra ~'+cluster.nextEst+' estrazioni'],
+      unknown:  ['badge-muted','⚪','Dati insufficienti per stimare il cluster'],
+    };
+    const [cls,icon,msg] = statusMap[cluster.status]||statusMap.unknown;
+    cdiv.innerHTML = `
+      <div class="badge ${cls}" style="margin-bottom:10px;font-size:13px">${icon} ${msg}</div>
+      <div class="sc-row">
+        <div class="sc"><div class="lb">Cluster trovati</div><div class="vl">${cluster.clusterCount||'—'}</div></div>
+        <div class="sc"><div class="lb">Gap medio</div><div class="vl">${cluster.avgGap||'—'} est.</div></div>
+        <div class="sc"><div class="lb">Dall'ultimo</div><div class="vl">${cluster.estFromLast!=null?cluster.estFromLast+' est.':'—'}</div></div>
+        <div class="sc"><div class="lb">Numeri cluster</div><div class="vl" style="font-size:14px">${(cluster.clusterNums||[]).join(', ')||'—'}</div></div>
+      </div>`;
+  } else {
+    cdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Dati cluster non disponibili.</p>';
+  }
+
+  // Ultima estrazione
+  const ld = state.draws[0];
+  document.getElementById('dash-last-draw').innerHTML = ld ? `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">#${ld.id} · ${ld.date} · ${ld.time}</div>
+    <div class="pills" style="margin-bottom:4px">${pillsB(ld.base)}</div>
+    <div class="pills">${pillsE(ld.extra)}</div>` : '<p style="color:var(--muted)">Nessuna estrazione</p>';
+
+  // Ultimo risultato previsione
+  const lastValidated = state.predictions.find(p=>p.result);
+  const rdiv = document.getElementById('dash-last-result');
+  if (lastValidated?.result) {
+    const r = lastValidated.result;
+    const wCls = r.win>0?(r.win>=1000?'w3':r.win>=100?'w2':'w1'):'w0';
+    rdiv.innerHTML = `
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+        Combo: ${lastValidated.combo.map(n=>`<span class="pill pb">${n}</span>`).join(' ')} 
+        → est. #${r.draw?.id} (${r.draw?.time})
+      </div>
+      <div class="sc-row">
+        <div class="sc"><div class="lb">Base indovinati</div><div class="vl">${pillsB(r.hBase)}</div></div>
+        <div class="sc"><div class="lb">Extra indovinati</div><div class="vl">${pillsE(r.hExtra)}</div></div>
+        <div class="sc"><div class="lb">Vincita</div><div class="vl ${wCls}">${fmtEur(r.win)}</div></div>
+      </div>`;
+  } else {
+    rdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Nessuna previsione validata ancora.</p>';
+  }
+}
+
+// ── FREQUENZE ──────────────────────────────────────────────
+function renderFreq(sliderVal){
+  const n = parseInt(sliderVal||document.getElementById('freq-slider').value);
+  document.getElementById('freq-n').textContent = n;
+  const mode = document.getElementById('freq-mode').value;
+  const sl = state.draws.slice(0,Math.min(n,state.draws.length));
+  if(!sl.length) return;
+
+  const bc={},ec={};
+  for(let i=1;i<=90;i++){bc[i]=0;ec[i]=0;}
+  sl.forEach(d=>{d.base.forEach(x=>bc[x]++);d.extra.forEach(x=>ec[x]++);});
+
+  const scores={};
+  for(let i=1;i<=90;i++){
+    const wB=mode==='extra'?0:mode==='base'?1:2;
+    const wE=mode==='base'?0:1;
+    scores[i]=bc[i]*wB+ec[i]*wE;
+  }
+  const maxS=Math.max(...Object.values(scores))||1;
+  const hotNum=Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0]*1;
+
+  // Palette ember: nero→bordeaux→arancione→rosso
+  function scoreToRgba(t){
+    const stops=[[0,[17,17,17],0.15],[0.25,[80,20,20],0.4],[0.5,[160,50,20],0.65],[0.75,[220,90,20],0.85],[1,[229,62,62],1]];
+    for(let s=0;s<stops.length-1;s++){
+      const[t0,c0,a0]=stops[s],[t1,c1,a1]=stops[s+1];
+      if(t>=t0&&t<=t1){const f=(t-t0)/(t1-t0);const r=c=>Math.round(c0[c]+(c1[c]-c0[c])*f);return`rgba(${r(0)},${r(1)},${r(2)},${(a0+(a1-a0)*f).toFixed(2)})`;}
+    }
+    return'rgba(229,62,62,1)';
+  }
+
+  const g=document.getElementById('ngrid');g.innerHTML='';
+  for(let i=1;i<=90;i++){
+    const t=scores[i]/maxS;
+    const isHot=i===hotNum;
+    const bg=isHot?'rgba(229,62,62,1)':scoreToRgba(t);
+    const textOp=Math.max(0.4,Math.min(1,t*1.4+0.2));
+    const el=document.createElement('div');
+    el.className='nc';
+    el.style.cssText=`background:${bg};${isHot?'box-shadow:0 0 8px 2px rgba(229,62,62,.6);':''}`;
+    el.title=`${i}: B:${bc[i]} E:${ec[i]}`;
+    const show=mode==='extra'?`E:${ec[i]}`:mode==='base'?`B:${bc[i]}`:`B:${bc[i]} E:${ec[i]}`;
+    el.innerHTML=`<div style="font-size:12px;font-weight:600;color:rgba(255,255,255,${textOp})">${i}${isHot?'🔥':''}</div><div style="font-size:9px;color:rgba(255,255,255,${Math.max(0.3,textOp-0.1)})">${show}</div>`;
+    g.appendChild(el);
+  }
+}
+
+// ── HISTORY ────────────────────────────────────────────────
+function renderHistory(){
+  const n=parseInt(document.getElementById('hist-n').value);
+  const sl=state.draws.slice(0,n);
+  document.getElementById('hist-body').innerHTML=sl.map(d=>`
+    <tr>
+      <td>${d.id}</td>
+      <td style="font-size:11px;color:var(--muted)">${d.date}</td>
+      <td>${d.time}</td>
+      <td><div class="pills">${pillsB(d.base)}</div></td>
+      <td><div class="pills">${pillsE(d.extra)}</div></td>
+    </tr>`).join('');
+}
+
+// ── PREDICTIONS ────────────────────────────────────────────
+function renderPredictions(){
+  const sl=state.predictions.slice(0,50);
+  document.getElementById('pred-body').innerHTML=sl.map(p=>{
+    const r=p.result;
+    const wCls=r?(r.win>0?(r.win>=1000?'w3':r.win>=100?'w2':'w1'):'w0'):'';
+    return`<tr>
+      <td style="font-size:11px;color:var(--muted)">${new Date(p.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+      <td><div class="pills">${p.combo.map(n=>`<span class="pill pb">${n}</span>`).join('')}</div></td>
+      <td style="color:var(--muted)">#${p.targetExtId}</td>
+      <td>${r?pillsB(r.hBase):'⏳'}</td>
+      <td>${r?pillsE(r.hExtra):'⏳'}</td>
+      <td class="${wCls}">${r?fmtEur(r.win):'⏳'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── PATTERNS ───────────────────────────────────────────────
+function renderPatterns(){
+  const p=state.patterns;
+  const el=document.getElementById('patterns-content');
+  if(!p||p.message){
+    el.innerHTML=`<p style="color:var(--muted)">${p?.message||'Nessun dato'}</p>`;return;
+  }
+  el.innerHTML=`
+    <h2>🧠 Pattern identificati</h2>
+    <div class="sc-row">
+      <div class="sc"><div class="lb">Previsioni validate</div><div class="vl">${p.totalPredictions||0}</div></div>
+      <div class="sc"><div class="lb">Win rate</div><div class="vl">${p.winRate||0}%</div></div>
+      <div class="sc"><div class="lb">Totale vinto</div><div class="vl" style="color:var(--acc)">${fmtEur(p.totalWon||0)}</div></div>
+      <div class="sc"><div class="lb">Max perdite consecutive</div><div class="vl" style="color:${(p.maxLossStreak||0)>5?'var(--red)':'var(--muted)'}">${p.maxLossStreak||0}</div></div>
+    </div>
+    ${p.patterns?.length?`
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Pattern rilevati:</div>
+      ${p.patterns.map(pt=>`<div style="padding:7px 11px;background:var(--bg);border-radius:var(--r);margin-bottom:5px;font-size:13px">${pt}</div>`).join('')}
+    </div>`:''}
+    ${p.bestNums?.length?`
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Numeri più redditizi nelle combo vincenti:</div>
+    <div class="combo">${p.bestNums.map(n=>`<div class="num-circle amb">${n}</div>`).join('')}</div>`:''}
+    ${p.bestHour!=null?`<div style="font-size:13px;margin-top:10px">📅 Fascia oraria con più vincite storiche: <strong>${p.bestHour}:xx</strong></div>`:''}`;
+}
+
+// ── GIOCATE ────────────────────────────────────────────────
+let localGiocate = JSON.parse(localStorage.getItem('lotto_giocate_v2')||'[]');
+
+function saveLocalGiocate(){localStorage.setItem('lotto_giocate_v2',JSON.stringify(localGiocate));}
+
+function addGiocata(){
+  const raw=document.getElementById('gio-nums').value.trim();
+  if(!raw){alert('Inserisci i numeri');return;}
+  const nums=raw.split(/[\s,]+/).map(Number).filter(n=>n>=1&&n<=90);
+  if(nums.length<2){alert('Almeno 2 numeri validi');return;}
+  const nEst=parseInt(document.getElementById('gio-n').value)||1;
+  const lastDraw=state.draws[0];
+  const lastId=lastDraw?lastDraw.id:0;
+  const lastDateKey=lastDraw?lastDraw.dateKey:null;
+  for(let i=0;i<nEst;i++){
+    localGiocate.unshift({
+      id:Date.now()+i,ts:new Date().toISOString(),
+      nums,extId:lastId+1+i,lastKnownId:lastId,lastKnownDateKey:lastDateKey,
+      stato:'pending',hBase:[],hExtra:[],win:0
+    });
+  }
+  saveLocalGiocate();
+  document.getElementById('gio-nums').value='';
+  renderGiocate();
+  alert(`✅ Registrate ${nEst} giocata${nEst>1?'e':''} · est. #${lastId+1}${nEst>1?'→#'+(lastId+nEst):''}`);
+}
+
+function addGiocataFromPred(){
+  const pred=state.predictions[0];
+  if(!pred){alert('Nessuna previsione disponibile');return;}
+  const lastDraw=state.draws[0];
+  localGiocate.unshift({
+    id:Date.now(),ts:new Date().toISOString(),
+    nums:pred.combo,extId:pred.targetExtId,
+    lastKnownId:lastDraw?.id||0,lastKnownDateKey:lastDraw?.dateKey||null,
+    stato:'pending',hBase:[],hExtra:[],win:0,fonte:'worker-pred'
+  });
+  saveLocalGiocate();
+  renderGiocate();
+  alert(`✅ Giocata registrata: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
+}
+
+function autoValidateGiocate(){
+  let changed=false;
+  localGiocate.forEach(g=>{
+    if(g.stato!=='pending'||!g.extId) return;
+    const draw=state.draws.find(d=>d.id===g.extId&&d.id>g.lastKnownId&&(!g.lastKnownDateKey||d.dateKey===g.lastKnownDateKey));
+    if(!draw) return;
+    g.hBase=g.nums.filter(n=>draw.base.includes(n));
+    g.hExtra=g.nums.filter(n=>draw.extra.includes(n));
+    const p=getPrize(g.nums.length,g.hBase.length,g.hExtra.length);
+    g.win=Math.max(p.base,p.extra);
+    g.stato='validata';
+    changed=true;
+  });
+  if(changed){saveLocalGiocate();renderGiocate();}
+}
+
+const PRIZES_FE={1:{1:[3,4]},2:{2:[14,16],1:[0,1]},3:{3:[45,100],2:[2,4]},4:{4:[90,225],3:[10,25],2:[1,2]},5:{5:[140,300],4:[15,30],3:[4,10],2:[1,2]},6:{6:[1000,2000],5:[100,200],4:[10,20],3:[2,7],2:[0,1]},7:{7:[1600,5000],6:[400,750],5:[40,75],4:[4,15],3:[0,5],0:[1,0]},8:{8:[10000,20000],7:[800,2000],6:[200,450],5:[20,45],4:[0,10],3:[0,3],0:[1,0]},9:{9:[100000,250000],8:[4000,5000],7:[400,500],6:[40,75],5:[10,20],4:[0,10],0:[2,1]},10:{10:[1000000,2000000],9:[20000,40000],8:[1000,2000],7:[150,250],6:[15,35],5:[5,20],4:[0,6],0:[2,1]}};
+function getPrize(p,hB,hE){const row=PRIZES_FE[p];if(!row)return{base:0,extra:0};return{base:row[hB]?row[hB][0]:0,extra:row[hE]?row[hE][1]:0};}
+
+function renderGiocate(){
+  autoValidateGiocate();
+  const totWin=localGiocate.filter(g=>g.stato==='validata').reduce((s,g)=>s+g.win,0);
+  const winRate=localGiocate.filter(g=>g.stato==='validata').length?
+    Math.round(localGiocate.filter(g=>g.stato==='validata'&&g.win>0).length/localGiocate.filter(g=>g.stato==='validata').length*100):0;
+
+  document.getElementById('gio-info').innerHTML=localGiocate.length?
+    `${localGiocate.length} giocate · Validate: ${localGiocate.filter(g=>g.stato==='validata').length} · Win rate: ${winRate}% · Totale vinto: <strong style="color:var(--acc)">${fmtEur(totWin)}</strong>`:'';
+
+  document.getElementById('gio-body').innerHTML=localGiocate.map(g=>{
+    const val=g.stato==='validata';
+    const wCls=val?(g.win>0?(g.win>=1000?'w3':g.win>=100?'w2':'w1'):'w0'):'';
+    return`<tr>
+      <td style="font-size:11px;color:var(--muted)">${new Date(g.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+      <td><div class="pills">${g.nums.map(n=>`<span class="pill pb" style="font-size:10px">${n}</span>`).join('')}</div></td>
+      <td style="color:var(--muted)">#${g.extId}</td>
+      <td>${val?pillsB(g.hBase):'⏳'}</td>
+      <td>${val?pillsE(g.hExtra):'⏳'}</td>
+      <td class="${wCls}">${val?fmtEur(g.win):'⏳'}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── BOOT ───────────────────────────────────────────────────
+window.addEventListener('load', loadAll);
+</script>
+</body>
+</html>
