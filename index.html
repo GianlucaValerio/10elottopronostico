@@ -109,6 +109,7 @@ select,input[type=text],input[type=number]{font-size:13px;padding:5px 9px;border
     <button class="tab"    onclick="tab('predictions')">🔮 Previsioni</button>
     <button class="tab"    onclick="tab('patterns')">🧠 Pattern</button>
     <button class="tab"    onclick="tab('giocate')">📒 Giocate</button>
+    <button class="tab"    onclick="tab('validate')">🔬 Validazione</button>
   </div>
 
   <!-- DASHBOARD -->
@@ -181,9 +182,24 @@ select,input[type=text],input[type=number]{font-size:13px;padding:5px 9px;border
     </div>
   </div>
 
-  <!-- GIOCATE -->
-  <div class="pane" id="pane-giocate">
+  <!-- VALIDAZIONE -->
+  <div class="pane" id="pane-validate">
+    <div class="info">
+      <strong>Validazione Walk-Forward:</strong> test scientifico che risponde a una sola domanda —
+      <em>il modello batte il caso su dati storici mai visti durante la costruzione della previsione?</em>
+      Ogni step genera una previsione con le ultime 10 estrazioni, la testa sulla successiva,
+      e confronta con 200 combinazioni casuali. Fino a 500 step.
+      <strong>Questo calcolo non modifica le previsioni live.</strong>
+    </div>
     <div class="box">
+      <button class="pri" id="val-btn" onclick="runValidation()">🔬 Avvia validazione</button>
+      <span style="font-size:12px;color:var(--muted);margin-left:10px" id="val-status"></span>
+    </div>
+    <div id="val-out"></div>
+  </div>
+
+  <!-- GIOCATE -->
+  <div class="pane" id="pane-giocate">    <div class="box">
       <h2>➕ Registra giocata reale</h2>
       <div class="row">
         <label>Numeri: <input type="text" id="gio-nums" placeholder="es. 5 18 31 43" style="width:160px"></label>
@@ -268,7 +284,7 @@ function startCountdown(){
 
 // ── TABS ───────────────────────────────────────────────────
 function tab(name){
-  const ns=['dashboard','freq','history','predictions','patterns','giocate'];
+  const ns=['dashboard','freq','history','predictions','patterns','giocate','validate'];
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('on',ns[i]===name));
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
   document.getElementById('pane-'+name).classList.add('on');
@@ -671,6 +687,312 @@ function renderGiocate(){
   }).join('');
 }
 
+// ── VALIDAZIONE ────────────────────────────────────────────
+async function runValidation() {
+  const btn = document.getElementById('val-btn');
+  const st  = document.getElementById('val-status');
+  btn.disabled = true;
+  st.innerHTML = '<span class="spin"></span> Calcolo in corso (può richiedere 20-40 secondi)...';
+  document.getElementById('val-out').innerHTML = '';
+
+  try {
+    const r = await apiFetch('validate');
+    st.textContent = `Completato in ${r.steps} step`;
+    btn.disabled = false;
+    renderValidation(r);
+  } catch(e) {
+    st.textContent = 'Errore: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+function renderValidation(r) {
+  if (r.error) {
+    document.getElementById('val-out').innerHTML = `<div class="box"><p style="color:var(--red)">${r.error}</p></div>`;
+    return;
+  }
+
+  const verdictColor = {
+    SIGNIFICATIVO_POSITIVO: 'var(--grn)',
+    SIGNIFICATIVO_NEGATIVO: 'var(--red)',
+    BORDERLINE:             'var(--amb)',
+    NON_SIGNIFICATIVO:      'var(--muted)',
+  }[r.verdict] || 'var(--muted)';
+
+  const edgeSign = r.stats.edgePct >= 0 ? '+' : '';
+  const roiSign  = r.model.roi >= 0 ? '+' : '';
+
+  // Distribuzione hit
+  const maxHitCount = Math.max(...Object.values(r.model.hitDist||{}), 1);
+  const hitDistHtml = [0,1,2,3,4,5,6,7].map(h => {
+    const cnt = r.model.hitDist[h] || 0;
+    const pct = Math.round(cnt/r.steps*100);
+    const w   = Math.round(cnt/maxHitCount*100);
+    // Probabilità teorica ipergeometrica P(X=h | N=90, K=35, n=5)
+    function comb(n,k){if(k<0||k>n)return 0;let r=1;for(let i=0;i<k;i++)r=r*(n-i)/(i+1);return r;}
+    const pTheory = Math.round(comb(35,h)*comb(55,5-h)/comb(90,5)*100);
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:3px">
+      <div style="width:40px;text-align:right;color:var(--muted)">${h} hit</div>
+      <div style="flex:1;height:16px;background:rgba(0,0,0,0.06);border-radius:3px;position:relative">
+        <div style="height:100%;width:${w}%;background:${h>=3?'var(--grn)':h>=2?'var(--acc)':'var(--muted)'};border-radius:3px;opacity:.8"></div>
+      </div>
+      <div style="width:36px;font-weight:600">${cnt}</div>
+      <div style="width:36px;color:var(--muted)">${pct}%</div>
+      <div style="width:50px;color:var(--muted);font-size:10px">teoria:${pTheory}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('val-out').innerHTML = `
+  <div class="box" style="border-left:4px solid ${verdictColor}">
+    <h2 style="color:${verdictColor};margin-bottom:8px">🔬 Verdetto</h2>
+    <div style="font-size:15px;font-weight:500;margin-bottom:8px">${r.verdictDetail}</div>
+    <div style="font-size:12px;color:var(--muted)">
+      ${r.steps} step walk-forward · ${r.played} numeri giocati · lookBack ${r.lookBack} est. · baseline: 200 combo casuali/step
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>📊 Modello vs Casuale</h3>
+    <div class="sc-row">
+      <div class="sc"><div class="lb">Hit medi modello</div><div class="vl">${r.model.avgHits}</div></div>
+      <div class="sc"><div class="lb">Hit medi casuali</div><div class="vl" style="color:var(--muted)">${r.random.avgHits}</div></div>
+      <div class="sc"><div class="lb">Edge modello</div>
+        <div class="vl" style="color:${r.stats.edgePct>=0?'var(--grn)':'var(--red)'}">${edgeSign}${r.stats.edgePct}%</div>
+      </div>
+      <div class="sc"><div class="lb">z-score</div><div class="vl">${r.stats.zScore}</div></div>
+      <div class="sc"><div class="lb">p-value</div><div class="vl">${r.stats.pValue}</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">
+      p &lt; 0.05 = statisticamente significativo · p &lt; 0.01 = molto significativo · p &gt; 0.05 = compatibile col caso
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>💰 ROI simulato</h3>
+    <div class="sc-row">
+      <div class="sc"><div class="lb">Step simulati</div><div class="vl">${r.steps}</div></div>
+      <div class="sc"><div class="lb">Speso (€2/step)</div><div class="vl" style="color:var(--muted)">€${r.model.totalCost}</div></div>
+      <div class="sc"><div class="lb">Vinto</div><div class="vl" style="color:var(--acc)">€${r.model.totalWin}</div></div>
+      <div class="sc"><div class="lb">ROI</div>
+        <div class="vl" style="color:${r.model.roi>=0?'var(--grn)':'var(--red)'}">${roiSign}${r.model.roi}%</div>
+      </div>
+      <div class="sc"><div class="lb">Win rate</div><div class="vl">${r.model.winRate}%</div></div>
+      <div class="sc"><div class="lb">Win medio casuale</div><div class="vl" style="color:var(--muted)">€${r.random.avgWin}/step</div></div>
+    </div>
+  </div>
+
+  <div class="box">
+    <h3>📉 Distribuzione hit (modello vs teoria casuale)</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      "Teoria" = frequenza attesa con 5 numeri scelti casualmente su 90 (35 estraibili base+extra).
+      Se il modello funziona, dovremmo vedere più hit alti rispetto alla teoria.
+    </p>
+    ${hitDistHtml}
+  </div>`;
+}
+
+// ── VALIDAZIONE (gira nel browser, nessun limite CPU) ──────
+function getPrizeFE(played, hB, hE) {
+  return PRIZES_FE[played] ? {
+    base:  PRIZES_FE[played][hB]  ? PRIZES_FE[played][hB][0]  : 0,
+    extra: PRIZES_FE[played][hE]  ? PRIZES_FE[played][hE][1]  : 0,
+  } : {base:0, extra:0};
+}
+
+function computeScoreFE(draws, poolSize=15, lookBack=10) {
+  // Replica la logica del Worker: frequenze pesate + penalità ritardo
+  const sl = draws.slice(0, Math.min(lookBack, draws.length));
+  const freq = {};
+  for (let i=1;i<=90;i++) freq[i]=0;
+  sl.forEach(d => {
+    d.base.forEach(n => freq[n] += 2);
+    d.extra.forEach(n => freq[n] += 1);
+  });
+  const scores = {};
+  for (let i=1;i<=90;i++) {
+    let delay=0;
+    for (let j=0;j<sl.length;j++) {
+      if (sl[j].base.includes(i)||sl[j].extra.includes(i)) break;
+      delay++;
+    }
+    scores[i] = freq[i] * Math.pow(0.85, Math.max(0, delay-3));
+  }
+  return Object.entries(scores)
+    .sort((a,b)=>b[1]-a[1]).slice(0,poolSize).map(([n])=>parseInt(n));
+}
+
+async function runValidation() {
+  const btn = document.getElementById('val-btn');
+  const st  = document.getElementById('val-status');
+  btn.disabled = true;
+  document.getElementById('val-out').innerHTML = '';
+
+  const draws = state.draws;
+  if (draws.length < 20) {
+    st.textContent = 'Dati insufficienti — carica prima le estrazioni';
+    btn.disabled = false;
+    return;
+  }
+
+  const LOOKBACK  = 10;
+  const PLAYED    = 5;
+  const POOL_SIZE = 15;
+  const N_RANDOM  = 100; // per step — nel browser possiamo fare meno per velocità
+  const MAX_STEPS = Math.min(draws.length - LOOKBACK - 1, 300);
+
+  // draws[0] = più recente → inverti per ordine cronologico
+  const slChron = [...draws].reverse();
+
+  const modelHits=[], randomHits=[], modelWins=[], randomWins=[];
+  let step = 0;
+
+  st.innerHTML = `<span class="spin"></span> Step 0/${MAX_STEPS}...`;
+
+  // Elabora a chunk per non bloccare il browser
+  await new Promise(resolve => {
+    function processChunk() {
+      const chunkEnd = Math.min(step + 20, MAX_STEPS);
+      while (step < chunkEnd) {
+        const i = LOOKBACK + step;
+        if (i >= slChron.length) break;
+
+        const history = [...slChron.slice(i-LOOKBACK, i)].reverse(); // desc per computeScoreFE
+        const target  = slChron[i];
+
+        // Modello
+        const pool      = computeScoreFE(history, POOL_SIZE, LOOKBACK);
+        const modelCombo = pool.slice(0, PLAYED);
+        const mHB = modelCombo.filter(n=>target.base.includes(n)).length;
+        const mHE = modelCombo.filter(n=>target.extra.includes(n)).length;
+        const mP  = getPrizeFE(PLAYED, mHB, mHE);
+        modelHits.push(mHB+mHE);
+        modelWins.push(Math.max(mP.base, mP.extra));
+
+        // Baseline random
+        let rHSum=0, rWSum=0;
+        for (let r=0;r<N_RANDOM;r++) {
+          const p=[...Array(90)].map((_,k)=>k+1);
+          for(let k=p.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[p[k],p[j]]=[p[j],p[k]];}
+          const rc=p.slice(0,PLAYED);
+          const rHB=rc.filter(n=>target.base.includes(n)).length;
+          const rHE=rc.filter(n=>target.extra.includes(n)).length;
+          const rP=getPrizeFE(PLAYED,rHB,rHE);
+          rHSum+=rHB+rHE; rWSum+=Math.max(rP.base,rP.extra);
+        }
+        randomHits.push(rHSum/N_RANDOM);
+        randomWins.push(rWSum/N_RANDOM);
+        step++;
+      }
+
+      st.innerHTML = `<span class="spin"></span> Step ${step}/${MAX_STEPS}...`;
+
+      if (step < MAX_STEPS && LOOKBACK+step < slChron.length) {
+        setTimeout(processChunk, 0);
+      } else {
+        resolve();
+      }
+    }
+    setTimeout(processChunk, 0);
+  });
+
+  btn.disabled = false;
+  const N = modelHits.length;
+  if (!N) { st.textContent='Nessun dato elaborato'; return; }
+  st.textContent = `✅ Completato — ${N} step`;
+
+  // Statistiche
+  const mAvgHits = modelHits.reduce((a,b)=>a+b,0)/N;
+  const rAvgHits = randomHits.reduce((a,b)=>a+b,0)/N;
+  const mTotWin  = modelWins.reduce((a,b)=>a+b,0);
+  const rAvgWin  = randomWins.reduce((a,b)=>a+b,0)/N;
+  const mAvgWin  = mTotWin/N;
+  const mWinRate = Math.round(modelWins.filter(w=>w>0).length/N*100);
+
+  const hitDist={};
+  modelHits.forEach(h=>{hitDist[h]=(hitDist[h]||0)+1;});
+
+  const mVar=modelHits.reduce((s,h)=>s+Math.pow(h-mAvgHits,2),0)/N;
+  const rVar=randomHits.reduce((s,h)=>s+Math.pow(h-rAvgHits,2),0)/N;
+  const se=Math.sqrt((mVar+rVar)/N);
+  const zScore=se>0?(mAvgHits-rAvgHits)/se:0;
+
+  function normalCDF(z){
+    const t=1/(1+0.2316419*Math.abs(z));
+    const d=0.3989423*Math.exp(-z*z/2);
+    const p=d*t*(0.3193815+t*(-0.3565638+t*(1.7814779+t*(-1.8212560+t*1.3302744))));
+    return z>0?1-p:p;
+  }
+  const pValue=Math.round(2*(1-normalCDF(Math.abs(zScore)))*10000)/10000;
+  const zRound=Math.round(zScore*1000)/1000;
+  const edgePct=rAvgHits>0?Math.round((mAvgHits/rAvgHits-1)*100):0;
+  const totalCost=N*2;
+  const roi=Math.round((mTotWin-totalCost)/totalCost*100);
+
+  let verdict, verdictDetail, verdictColor;
+  if (pValue<0.01) {
+    verdict=zScore>0?'SIGNIFICATIVO_POSITIVO':'SIGNIFICATIVO_NEGATIVO';
+    verdictDetail=zScore>0?`✅ Il modello batte il caso in modo statisticamente significativo (p=${pValue})`:`❌ Il modello performa peggio del caso (p=${pValue})`;
+    verdictColor=zScore>0?'var(--grn)':'var(--red)';
+  } else if (pValue<0.05) {
+    verdict='BORDERLINE'; verdictColor='var(--amb)';
+    verdictDetail=`⚠️ Risultato borderline — qualche segnale ma non conclusivo (p=${pValue})`;
+  } else {
+    verdict='NON_SIGNIFICATIVO'; verdictColor='var(--muted)';
+    verdictDetail=`⚪ Nessuna evidenza che il modello batta il caso (p=${pValue}) — compatibile con rumore casuale`;
+  }
+
+  const maxHC=Math.max(...Object.values(hitDist),1);
+  function comb(n,k){if(k<0||k>n)return 0;let r=1;for(let i=0;i<k;i++)r=r*(n-i)/(i+1);return r;}
+  const hitRows=[0,1,2,3,4,5].map(h=>{
+    const cnt=hitDist[h]||0;
+    const pct=Math.round(cnt/N*100);
+    const pTheory=Math.round(comb(35,h)*comb(55,5-h)/comb(90,5)*100);
+    const w=Math.round(cnt/maxHC*100);
+    return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:3px">
+      <div style="width:40px;text-align:right;color:var(--muted)">${h} hit</div>
+      <div style="flex:1;height:16px;background:rgba(0,0,0,0.06);border-radius:3px">
+        <div style="height:100%;width:${w}%;background:${h>=3?'var(--grn)':h>=2?'var(--acc)':'var(--muted)'};border-radius:3px;opacity:.8"></div>
+      </div>
+      <div style="width:36px;font-weight:600">${cnt}</div>
+      <div style="width:36px;color:var(--muted)">${pct}%</div>
+      <div style="width:60px;color:var(--muted);font-size:10px">teoria: ${pTheory}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('val-out').innerHTML=`
+  <div class="box" style="border-left:4px solid ${verdictColor}">
+    <h2 style="color:${verdictColor};margin-bottom:8px">🔬 Verdetto</h2>
+    <div style="font-size:15px;font-weight:500;margin-bottom:6px">${verdictDetail}</div>
+    <div style="font-size:12px;color:var(--muted)">${N} step · ${PLAYED} numeri · lookBack ${LOOKBACK} · baseline ${N_RANDOM} combo casuali/step</div>
+  </div>
+  <div class="box">
+    <h3>📊 Modello vs Casuale</h3>
+    <div class="sc-row">
+      <div class="sc"><div class="lb">Hit medi modello</div><div class="vl">${Math.round(mAvgHits*1000)/1000}</div></div>
+      <div class="sc"><div class="lb">Hit medi casuali</div><div class="vl" style="color:var(--muted)">${Math.round(rAvgHits*1000)/1000}</div></div>
+      <div class="sc"><div class="lb">Edge</div><div class="vl" style="color:${edgePct>=0?'var(--grn)':'var(--red)'}">${edgePct>=0?'+':''}${edgePct}%</div></div>
+      <div class="sc"><div class="lb">z-score</div><div class="vl">${zRound}</div></div>
+      <div class="sc"><div class="lb">p-value</div><div class="vl">${pValue}</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">p &lt; 0.05 = significativo · p &lt; 0.01 = molto significativo · p &gt; 0.05 = rumore</div>
+  </div>
+  <div class="box">
+    <h3>💰 ROI simulato (€2/giocata)</h3>
+    <div class="sc-row">
+      <div class="sc"><div class="lb">Speso</div><div class="vl" style="color:var(--muted)">€${totalCost}</div></div>
+      <div class="sc"><div class="lb">Vinto</div><div class="vl" style="color:var(--acc)">€${Math.round(mTotWin)}</div></div>
+      <div class="sc"><div class="lb">ROI</div><div class="vl" style="color:${roi>=0?'var(--grn)':'var(--red)'}">${roi>=0?'+':''}${roi}%</div></div>
+      <div class="sc"><div class="lb">Win rate</div><div class="vl">${mWinRate}%</div></div>
+      <div class="sc"><div class="lb">Vinto medio/step</div><div class="vl">€${Math.round(mAvgWin*100)/100}</div></div>
+      <div class="sc"><div class="lb">Casuale medio/step</div><div class="vl" style="color:var(--muted)">€${Math.round(rAvgWin*100)/100}</div></div>
+    </div>
+  </div>
+  <div class="box">
+    <h3>📉 Distribuzione hit (modello vs teoria casuale)</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Se il modello funziona, le barre per 3+ hit devono essere più alte della "teoria".</p>
+    ${hitRows}
+  </div>`;
+}
 // ── BOOT ───────────────────────────────────────────────────
 window.addEventListener('load', loadAll);
 </script>
