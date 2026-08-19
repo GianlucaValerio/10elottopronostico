@@ -168,7 +168,7 @@ select,input[type=text],input[type=number]{font-size:13px;padding:5px 9px;border
     <div class="info">Ogni riga è una previsione calcolata dal Worker prima di conoscere l'estrazione. Il risultato viene validato automaticamente.</div>
     <div class="box">
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Data</th><th>Combo giocata</th><th>Target est.</th><th>Base ✓</th><th>Extra ✓</th><th>Vincita</th></tr></thead>
+        <thead><tr><th>Data</th><th>N</th><th>Tipo</th><th>Combo giocata</th><th>Target est.</th><th>Base ✓</th><th>Extra ✓</th><th>Vincita</th></tr></thead>
         <tbody id="pred-body"></tbody>
       </table></div>
     </div>
@@ -284,30 +284,58 @@ function circles(nums,cls=''){return nums.map(n=>`<div class="num-circle ${cls}"
 // ── DASHBOARD ──────────────────────────────────────────────
 function renderDashboard(){
   const s = state.status;
-  const pred = s.prediction || state.predictions[0];
-  const cluster = s.cluster || pred?.cluster;
+  const preds = s.predictions || {};
+  const cluster = s.cluster;
+  const clusterNums = cluster?.clusterNums||[];
 
-  // Previsione
+  // Previsioni 4, 5, 6 numeri
   const pdiv = document.getElementById('dash-pred-content');
-  if (pred?.combo) {
-    const clusterNums = cluster?.clusterNums||[];
+  const sizes = [4, 5, 6];
+  const hasPreds = sizes.some(sz => preds[sz]?.combo);
+
+  if (hasPreds) {
+    const clPreds = s.clusterPredictions || {};
+    const clActive = s.clusterActive;
+
     pdiv.innerHTML = `
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
-        Combinazione da giocare per est. <strong>#${pred.targetExtId||'?'}</strong>
-        — calcolata con lookBack ${pred.opts?.lookBack||10}, pool top-${pred.opts?.poolSize||15}
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        Combinazioni da giocare per est. <strong>#${preds[5]?.targetExtId||preds[4]?.targetExtId||'?'}</strong>
+        — lookBack 10 est., pool top-15
       </div>
-      <div class="combo">${pred.combo.map(n=>{
-        const isCluster=clusterNums.includes(n);
-        return `<div class="num-circle ${isCluster?'grn':''}" title="${isCluster?'numero cluster':''}">${n}</div>`;
-      }).join('')}</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">
-        🟢 = anche nei numeri cluster &nbsp;·&nbsp;
-        Pool: ${(pred.pool||[]).join(', ')}
+
+      <div style="font-size:13px;font-weight:500;margin-bottom:8px">📊 Previsioni standard</div>
+      ${sizes.map(sz => {
+        const p = preds[sz];
+        if (!p?.combo) return '';
+        const colors = {4:'acc',5:'grn',6:'amb'};
+        const col = colors[sz];
+        return `<div style="margin-bottom:12px;padding:10px;background:var(--bg);border-radius:var(--r)">
+          <div style="font-size:12px;font-weight:600;color:var(--${col});margin-bottom:6px">${sz} numeri</div>
+          <div class="combo">
+            ${p.combo.map(n=>`<div class="num-circle ${col}" style="${clusterNums.includes(n)?'box-shadow:0 0 0 3px var(--grn)':''}" title="${clusterNums.includes(n)?'anche nel cluster':''}">${n}</div>`).join('')}
+          </div>
+          <button onclick="addGiocataFromSize(${sz})" style="font-size:11px;padding:3px 10px;margin-top:6px;background:var(--${col}-bg);border-color:var(--${col});color:var(--${col})">📒 Registra ${sz}n</button>
+        </div>`;
+      }).join('')}
+
+      ${clActive && Object.values(clPreds).some(p=>p?.combo) ? `
+      <div style="font-size:13px;font-weight:500;margin:12px 0 8px;color:var(--red)">🔴 Previsioni Cluster (finestra attiva)</div>
+      ${sizes.map(sz => {
+        const p = clPreds[sz];
+        if (!p?.combo) return '';
+        return `<div style="margin-bottom:12px;padding:10px;background:var(--red-bg);border:.5px solid var(--red);border-radius:var(--r)">
+          <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:6px">${sz} numeri · cluster</div>
+          <div class="combo">
+            ${p.combo.map(n=>`<div class="num-circle red">${n}</div>`).join('')}
+          </div>
+          <button onclick="addGiocataFromCluster(${sz})" style="font-size:11px;padding:3px 10px;margin-top:6px;background:var(--red-bg);border-color:var(--red);color:var(--red)">📒 Registra cluster ${sz}n</button>
+        </div>`;
+      }).join('')}` : clActive ? '<div style="font-size:12px;color:var(--muted)">Numeri cluster insufficienti per la previsione.</div>' : ''}
+
+      <div style="font-size:11px;color:var(--muted);margin-top:8px">
+        🟢 bordo verde = numero presente anche nei cluster storici
       </div>
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-        <button onclick="addGiocataFromPred()" class="pri">📒 Registra come giocata reale</button>
-        <button onclick="tab('predictions')">📋 Storico previsioni</button>
-      </div>`;
+      <div style="margin-top:8px"><button onclick="tab('predictions')">📋 Storico previsioni</button></div>`;
   } else {
     pdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Nessuna previsione disponibile — attendi il primo ciclo del Worker.</p>';
   }
@@ -425,12 +453,18 @@ function renderHistory(){
 
 // ── PREDICTIONS ────────────────────────────────────────────
 function renderPredictions(){
-  const sl=state.predictions.slice(0,50);
+  const sl=state.predictions.slice(0,150);
   document.getElementById('pred-body').innerHTML=sl.map(p=>{
     const r=p.result;
     const wCls=r?(r.win>0?(r.win>=1000?'w3':r.win>=100?'w2':'w1'):'w0'):'';
+    const szCol={4:'var(--acc)',5:'var(--grn)',6:'var(--amb)'}[p.played]||'var(--muted)';
+    const typeLabel=p.type==='cluster'
+      ?`<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 5px;border-radius:3px">cluster</span>`
+      :`<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 5px;border-radius:3px">std</span>`;
     return`<tr>
       <td style="font-size:11px;color:var(--muted)">${new Date(p.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+      <td style="font-weight:600;color:${szCol}">${p.played||5}n</td>
+      <td>${typeLabel}</td>
       <td><div class="pills">${p.combo.map(n=>`<span class="pill pb">${n}</span>`).join('')}</div></td>
       <td style="color:var(--muted)">#${p.targetExtId}</td>
       <td>${r?pillsB(r.hBase):'⏳'}</td>
@@ -493,20 +527,41 @@ function addGiocata(){
   alert(`✅ Registrate ${nEst} giocata${nEst>1?'e':''} · est. #${lastId+1}${nEst>1?'→#'+(lastId+nEst):''}`);
 }
 
-function addGiocataFromPred(){
-  const pred=state.predictions[0];
-  if(!pred){alert('Nessuna previsione disponibile');return;}
+function addGiocataFromSize(size){
+  const preds = state.status.predictions||{};
+  const pred = preds[size];
+  if(!pred?.combo){alert('Nessuna previsione '+size+'n disponibile');return;}
   const lastDraw=state.draws[0];
   localGiocate.unshift({
     id:Date.now(),ts:new Date().toISOString(),
     nums:pred.combo,extId:pred.targetExtId,
     lastKnownId:lastDraw?.id||0,lastKnownDateKey:lastDraw?.dateKey||null,
-    stato:'pending',hBase:[],hExtra:[],win:0,fonte:'worker-pred'
+    stato:'pending',hBase:[],hExtra:[],win:0,fonte:'worker-pred-'+size+'n'
   });
   saveLocalGiocate();
   renderGiocate();
-  alert(`✅ Giocata registrata: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
+  tab('giocate');
+  alert(`✅ Registrata giocata ${size}n: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
 }
+
+function addGiocataFromCluster(size){
+  const clPreds = state.status.clusterPredictions||{};
+  const pred = clPreds[size];
+  if(!pred?.combo){alert('Nessuna previsione cluster '+size+'n disponibile');return;}
+  const lastDraw=state.draws[0];
+  localGiocate.unshift({
+    id:Date.now(),ts:new Date().toISOString(),
+    nums:pred.combo,extId:pred.targetExtId,
+    lastKnownId:lastDraw?.id||0,lastKnownDateKey:lastDraw?.dateKey||null,
+    stato:'pending',hBase:[],hExtra:[],win:0,fonte:'cluster-pred-'+size+'n'
+  });
+  saveLocalGiocate();
+  renderGiocate();
+  tab('giocate');
+  alert(`✅ Registrata giocata cluster ${size}n: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
+}
+
+function addGiocataFromPred(){addGiocataFromSize(5);}
 
 function autoValidateGiocate(){
   let changed=false;
