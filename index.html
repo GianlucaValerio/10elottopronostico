@@ -1040,7 +1040,7 @@ async function resetPredType(type) {
   if (!confirm('Vuoi azzerare ' + label + '? Il contatore riparte da zero.')) return;
   try {
     const r = await fetch(WORKER + '?action=reset-predictions&type=' + type + '&secret=' + SECRET);
-    const data = await r.json();
+    const data = await r.json(); 
     if (data.ok) {
       alert('✅ Rimossi ' + data.removed + ' previsioni · Rimaste: ' + data.remaining);
       await loadAll();
