@@ -304,12 +304,14 @@ function renderDashboard(){
   const clPreds  = s.clusterPredictions || {};
   const fSlim    = s.fasciaSlimPred;
   const fLarge   = s.fasciaLargePred;
+  const fTop     = s.fasciaTopPred;
   const cluster  = s.cluster;
   const clusterNums = cluster?.clusterNums||[];
   const clActive = s.clusterActive;
   const pdiv = document.getElementById('dash-pred-content');
 
   const allPreds = [
+    { label:'🔥 Fascia-Top 4n',   sublabel:'Top 4 per score assoluto · pool: top 15 frequenza',                  pred: fTop,       col:'red', type:'fascia-top'   },
     { label:'📊 Standard 4n',     sublabel:'Frequenza pesata + penalità ritardo',                                 pred: preds[4],   col:'acc', type:'standard'     },
     { label:'🎯 Fascia-Slim 4n',  sublabel:'Corta: 1-2/5est · Lunga: fascia 55% (excl bot25% top20%)',           pred: fSlim,      col:'grn', type:'fascia-slim'  },
     { label:'🎯 Fascia-Large 4n', sublabel:'Corta: 1-3/5est · Lunga: fascia 70% (excl bot15% top15%)',           pred: fLarge,     col:'amb', type:'fascia-large' },
@@ -317,7 +319,7 @@ function renderDashboard(){
   ];
 
   const hasPreds = allPreds.some(x => x.pred && x.pred.combo && x.show !== false);
-  const targetExt = preds[4]?.targetExtId || fSlim?.targetExtId || fLarge?.targetExtId || '?';
+  const targetExt = fTop?.targetExtId || preds[4]?.targetExtId || fSlim?.targetExtId || '?';
 
   if (!hasPreds) {
     pdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Nessuna previsione disponibile — attendi il primo ciclo del Worker.</p>';
@@ -524,6 +526,7 @@ function renderPredictions(){
     const szCol={4:'var(--acc)',5:'var(--grn)',6:'var(--amb)'}[p.played]||'var(--muted)';
     const typeLabel =
       p.type==='cluster'      ? '<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:3px">cluster</span>'
+      : p.type==='fascia-top'   ? '<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:3px">🔥top</span>'
       : p.type==='fascia-slim'  ? '<span style="font-size:10px;background:var(--green-bg);color:var(--grn);padding:1px 6px;border-radius:3px">fascia-slim</span>'
       : p.type==='fascia-large' ? '<span style="font-size:10px;background:var(--amb-bg);color:var(--amb);padding:1px 6px;border-radius:3px">fascia-large</span>'
       : '<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 6px;border-radius:3px">std</span>';
@@ -549,8 +552,24 @@ function renderPatterns(){
   const roiColor = p.roi>=0?'var(--grn)':'var(--red)';
   const roiSign  = p.roi>=0?'+':'';
 
+  // Bottoni reset per tipo
+  const types = ['fascia-top','fascia-slim','fascia-large','standard','cluster','all'];
+  const typeLabels = {
+    'fascia-top':'🔥 Top','fascia-slim':'🎯 Slim','fascia-large':'🎯 Large',
+    'standard':'📊 Std','cluster':'🔴 Cluster','all':'⚠️ Tutti'
+  };
+  const resetBtns = types.map(t =>
+    `<button onclick="resetPredType('${t}')" style="font-size:11px;padding:3px 9px;${t==='all'?'color:var(--red);border-color:var(--red)':''}">${typeLabels[t]}</button>`
+  ).join('');
+
   el.innerHTML=`
-    <h2>🧠 Pattern identificati</h2>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <h2 style="margin:0">🧠 Pattern identificati</h2>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Azzera storico previsioni per tipo:</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${resetBtns}</div>
+      </div>
+    </div>
     <div class="sc-row">
       <div class="sc"><div class="lb">Previsioni validate</div><div class="vl">${p.totalPredictions||0}</div></div>
       <div class="sc"><div class="lb">Win rate</div><div class="vl">${p.winRate||0}%</div></div>
@@ -642,6 +661,7 @@ function addGiocataByType(type) {
   const s = state.status;
   const predMap = {
     'standard':    s.predictions?.[4],
+    'fascia-top':  s.fasciaTopPred,
     'fascia-slim': s.fasciaSlimPred,
     'fascia-large':s.fasciaLargePred,
     'cluster':     s.clusterPredictions?.[4],
@@ -1014,6 +1034,24 @@ async function runValidation() {
     ${hitRows}
   </div>`;
 }
+// ── RESET PREVISIONI ───────────────────────────────────────
+async function resetPredType(type) {
+  const label = type === 'all' ? 'TUTTE le previsioni' : 'le previsioni ' + type;
+  if (!confirm('Vuoi azzerare ' + label + '? Il contatore riparte da zero.')) return;
+  try {
+    const r = await fetch(WORKER + '?action=reset-predictions&type=' + type + '&secret=' + SECRET);
+    const data = await r.json();
+    if (data.ok) {
+      alert('✅ Rimossi ' + data.removed + ' previsioni · Rimaste: ' + data.remaining);
+      await loadAll();
+    } else {
+      alert('Errore: ' + JSON.stringify(data));
+    }
+  } catch(e) {
+    alert('Errore: ' + e.message);
+  }
+}
+
 // ── BOOT ───────────────────────────────────────────────────
 window.addEventListener('load', loadAll);
 </script>
