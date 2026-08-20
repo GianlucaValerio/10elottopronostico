@@ -300,82 +300,76 @@ function circles(nums,cls=''){return nums.map(n=>`<div class="num-circle ${cls}"
 // ── DASHBOARD ──────────────────────────────────────────────
 function renderDashboard(){
   const s = state.status;
-  const preds = s.predictions || {};
-  const cluster = s.cluster;
+  const preds    = s.predictions || {};
+  const clPreds  = s.clusterPredictions || {};
+  const fSlim    = s.fasciaSlimPred;
+  const fLarge   = s.fasciaLargePred;
+  const cluster  = s.cluster;
   const clusterNums = cluster?.clusterNums||[];
-
-  // Previsioni 4, 5, 6 numeri
+  const clActive = s.clusterActive;
   const pdiv = document.getElementById('dash-pred-content');
-  const sizes = [4, 5, 6];
-  const hasPreds = sizes.some(sz => preds[sz]?.combo);
 
-  if (hasPreds) {
-    const clPreds = s.clusterPredictions || {};
-    const fPreds  = s.fasciaPredictions  || {};
-    const clActive = s.clusterActive;
+  const allPreds = [
+    { label:'📊 Standard 4n',     sublabel:'Frequenza pesata + penalità ritardo',                                 pred: preds[4],   col:'acc', type:'standard'     },
+    { label:'🎯 Fascia-Slim 4n',  sublabel:'Corta: 1-2/5est · Lunga: fascia 55% (excl bot25% top20%)',           pred: fSlim,      col:'grn', type:'fascia-slim'  },
+    { label:'🎯 Fascia-Large 4n', sublabel:'Corta: 1-3/5est · Lunga: fascia 70% (excl bot15% top15%)',           pred: fLarge,     col:'amb', type:'fascia-large' },
+    { label:'🔴 Cluster 4n',      sublabel:'Solo in finestra cluster attiva/imminente',                          pred: clPreds[4], col:'red', type:'cluster', show: clActive },
+  ];
 
-    pdiv.innerHTML = `
-      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
-        Combinazioni da giocare per est. <strong>#${preds[5]?.targetExtId||preds[4]?.targetExtId||'?'}</strong>
-        — lookBack 10 est., pool top-15
-      </div>
+  const hasPreds = allPreds.some(x => x.pred && x.pred.combo && x.show !== false);
+  const targetExt = preds[4]?.targetExtId || fSlim?.targetExtId || fLarge?.targetExtId || '?';
 
-      <div style="font-size:13px;font-weight:500;margin-bottom:8px">📊 Previsioni standard</div>
-      ${sizes.map(sz => {
-        const p = preds[sz];
-        if (!p?.combo) return '';
-        const colors = {4:'acc',5:'grn',6:'amb'};
-        const col = colors[sz];
-        return `<div style="margin-bottom:12px;padding:10px;background:var(--bg);border-radius:var(--r)">
-          <div style="font-size:12px;font-weight:600;color:var(--${col});margin-bottom:6px">${sz} numeri</div>
-          <div class="combo">
-            ${p.combo.map(n=>`<div class="num-circle ${col}" style="${clusterNums.includes(n)?'box-shadow:0 0 0 3px var(--grn)':''}" title="${clusterNums.includes(n)?'anche nel cluster':''}">${n}</div>`).join('')}
-          </div>
-          <button onclick="addGiocataFromSize(${sz})" style="font-size:11px;padding:3px 10px;margin-top:6px;background:var(--${col}-bg);border-color:var(--${col});color:var(--${col})">📒 Registra ${sz}n</button>
-        </div>`;
-      }).join('')}
-
-      ${clActive && Object.values(clPreds).some(p=>p?.combo) ? `
-      <div style="font-size:13px;font-weight:500;margin:12px 0 8px;color:var(--red)">🔴 Previsioni Cluster (finestra attiva)</div>
-      ${sizes.map(sz => {
-        const p = clPreds[sz];
-        if (!p?.combo) return '';
-        return `<div style="margin-bottom:12px;padding:10px;background:var(--red-bg);border:.5px solid var(--red);border-radius:var(--r)">
-          <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:6px">${sz} numeri · cluster</div>
-          <div class="combo">
-            ${p.combo.map(n=>`<div class="num-circle red">${n}</div>`).join('')}
-          </div>
-          <button onclick="addGiocataFromCluster(${sz})" style="font-size:11px;padding:3px 10px;margin-top:6px;background:var(--red-bg);border-color:var(--red);color:var(--red)">📒 Registra cluster ${sz}n</button>
-        </div>`;
-      }).join('')}` : ''}
-
-      ${Object.values(fPreds||{}).some(p=>p?.combo) ? `
-      <div style="font-size:13px;font-weight:500;margin:12px 0 8px;color:var(--grn)">🎯 Previsioni Fascia (numeri in zona di ritorno)</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">
-        Numeri in fascia media su finestra corta (5 est.) e lunga (200 est.) — né caldi né freddi.
-        Candidati totali: ${fPreds[5]?.fasciaInfo?.totalCandidates||fPreds[4]?.fasciaInfo?.totalCandidates||'?'}
-      </div>
-      ${sizes.map(sz => {
-        const p = fPreds[sz];
-        if (!p?.combo) return '';
-        return `<div style="margin-bottom:12px;padding:10px;background:var(--green-bg);border:.5px solid var(--grn);border-radius:var(--r)">
-          <div style="font-size:12px;font-weight:600;color:var(--grn);margin-bottom:6px">${sz} numeri · fascia</div>
-          <div class="combo">
-            ${p.combo.map(n=>`<div class="num-circle grn">${n}</div>`).join('')}
-          </div>
-          <button onclick="addGiocataFromFascia(${sz})" style="font-size:11px;padding:3px 10px;margin-top:6px;background:var(--green-bg);border-color:var(--grn);color:var(--grn)">📒 Registra fascia ${sz}n</button>
-        </div>`;
-      }).join('')}` : ''}
-
-      <div style="font-size:11px;color:var(--muted);margin-top:8px">
-        🟢 bordo verde = numero presente anche nei cluster storici
-      </div>
-      <div style="margin-top:8px"><button onclick="tab('predictions')">📋 Storico previsioni</button></div>`;
-  } else {
+  if (!hasPreds) {
     pdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Nessuna previsione disponibile — attendi il primo ciclo del Worker.</p>';
+  } else {
+    let html = '<div style="font-size:12px;color:var(--muted);margin-bottom:14px">Pool candidati per est. <strong>#' + targetExt + '</strong> — clicca i numeri per selezionarli, poi registra la tua scelta</div>';
+
+    allPreds.filter(x => x.pred && x.pred.combo && x.show !== false).forEach(x => {
+      const pool = x.pred.pool || x.pred.combo;
+      const auto = x.pred.combo; // selezione automatica algoritmo
+      const fasciaNote = x.pred.fasciaInfo
+        ? ' · candidati: ' + x.pred.fasciaInfo.totalCandidates
+        : '';
+      const colVar = 'var(--' + x.col + ')';
+
+      // Pool pills — cliccabili, quelli "auto" preselezionati
+      const poolHtml = pool.map(n => {
+        const isAuto    = auto.includes(n);
+        const isCluster = clusterNums.includes(n);
+        const selId     = 'sel_' + x.type + '_' + n;
+        return '<div onclick="togglePoolNum(this,\'' + x.type + '\',' + n + ')" id="' + selId + '" ' +
+          'style="display:inline-flex;align-items:center;justify-content:center;' +
+          'width:38px;height:38px;border-radius:50%;margin:3px;cursor:pointer;font-size:14px;font-weight:600;' +
+          'border:2px solid ' + colVar + ';' +
+          'background:' + (isAuto ? colVar : 'transparent') + ';' +
+          'color:' + (isAuto ? '#fff' : colVar) + ';' +
+          (isCluster ? 'box-shadow:0 0 0 3px var(--grn);' : '') + '"' +
+          ' title="' + (isAuto ? 'selezionato dall\'algoritmo' : '') + (isCluster ? ' · anche nel cluster' : '') + '">' +
+          n + '</div>';
+      }).join('');
+
+      html += '<div style="margin-bottom:12px;padding:12px;background:var(--bg);border-radius:var(--r);border:.5px solid ' + colVar + '">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">' +
+          '<div><div style="font-size:13px;font-weight:600;color:' + colVar + '">' + x.label + '</div>' +
+          '<div style="font-size:11px;color:var(--muted)">' + x.sublabel + fasciaNote + '</div></div>' +
+          '<button onclick="registerCustom(\'' + x.type + '\',' + targetExt + ')" ' +
+          'style="font-size:11px;padding:4px 12px;background:' + colVar + ';color:#fff;border-color:' + colVar + '">📒 Registra selezionati</button>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;align-items:center;margin-bottom:6px">' + poolHtml + '</div>' +
+        '<div style="font-size:10px;color:var(--muted)">Pieno = selezionato algoritmo · Vuoto = disponibile · 🟢 bordo = anche nel cluster</div>' +
+      '</div>';
+    });
+
+    html += '<div style="margin-top:6px"><button onclick="tab(\'predictions\')">📋 Storico previsioni</button></div>';
+    pdiv.innerHTML = html;
+
+    // Init selezione con i numeri auto
+    allPreds.filter(x => x.pred && x.pred.combo && x.show !== false).forEach(x => {
+      if (!dashSelection[x.type]) dashSelection[x.type] = [...x.pred.combo];
+    });
   }
 
-  // Cluster
+  // Cluster status
   const cdiv = document.getElementById('dash-cluster-content');
   if (cluster) {
     const statusMap = {
@@ -385,45 +379,80 @@ function renderDashboard(){
       unknown:  ['badge-muted','⚪','Dati insufficienti per stimare il cluster'],
     };
     const [cls,icon,msg] = statusMap[cluster.status]||statusMap.unknown;
-    cdiv.innerHTML = `
-      <div class="badge ${cls}" style="margin-bottom:10px;font-size:13px">${icon} ${msg}</div>
-      <div class="sc-row">
-        <div class="sc"><div class="lb">Cluster trovati</div><div class="vl">${cluster.clusterCount||'—'}</div></div>
-        <div class="sc"><div class="lb">Gap medio</div><div class="vl">${cluster.avgGap||'—'} est.</div></div>
-        <div class="sc"><div class="lb">Dall'ultimo</div><div class="vl">${cluster.estFromLast!=null?cluster.estFromLast+' est.':'—'}</div></div>
-        <div class="sc"><div class="lb">Numeri cluster</div><div class="vl" style="font-size:14px">${(cluster.clusterNums||[]).join(', ')||'—'}</div></div>
-      </div>`;
+    cdiv.innerHTML = '<div class="badge ' + cls + '" style="margin-bottom:10px;font-size:13px">' + icon + ' ' + msg + '</div>' +
+      '<div class="sc-row">' +
+        '<div class="sc"><div class="lb">Cluster trovati</div><div class="vl">' + (cluster.clusterCount||'—') + '</div></div>' +
+        '<div class="sc"><div class="lb">Gap medio</div><div class="vl">' + (cluster.avgGap||'—') + ' est.</div></div>' +
+        '<div class="sc"><div class="lb">Dall\'ultimo</div><div class="vl">' + (cluster.estFromLast!=null?cluster.estFromLast+' est.':'—') + '</div></div>' +
+        '<div class="sc"><div class="lb">Numeri cluster</div><div class="vl" style="font-size:14px">' + ((cluster.clusterNums||[]).join(', ')||'—') + '</div></div>' +
+      '</div>';
   } else {
     cdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Dati cluster non disponibili.</p>';
   }
 
-  // Ultima estrazione
   const ld = state.draws[0];
-  document.getElementById('dash-last-draw').innerHTML = ld ? `
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">#${ld.id} · ${ld.date} · ${ld.time}</div>
-    <div class="pills" style="margin-bottom:4px">${pillsB(ld.base)}</div>
-    <div class="pills">${pillsE(ld.extra)}</div>` : '<p style="color:var(--muted)">Nessuna estrazione</p>';
+  document.getElementById('dash-last-draw').innerHTML = ld
+    ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">#' + ld.id + ' · ' + ld.date + ' · ' + ld.time + '</div>' +
+      '<div class="pills" style="margin-bottom:4px">' + pillsB(ld.base) + '</div>' +
+      '<div class="pills">' + pillsE(ld.extra) + '</div>'
+    : '<p style="color:var(--muted)">Nessuna estrazione</p>';
 
-  // Ultimo risultato previsione
   const lastValidated = state.predictions.find(p=>p.result);
   const rdiv = document.getElementById('dash-last-result');
   if (lastValidated?.result) {
     const r = lastValidated.result;
     const wCls = r.win>0?(r.win>=1000?'w3':r.win>=100?'w2':'w1'):'w0';
-    rdiv.innerHTML = `
-      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
-        Combo: ${lastValidated.combo.map(n=>`<span class="pill pb">${n}</span>`).join(' ')} 
-        → est. #${r.draw?.id} (${r.draw?.time})
-      </div>
-      <div class="sc-row">
-        <div class="sc"><div class="lb">Base indovinati</div><div class="vl">${pillsB(r.hBase)}</div></div>
-        <div class="sc"><div class="lb">Extra indovinati</div><div class="vl">${pillsE(r.hExtra)}</div></div>
-        <div class="sc"><div class="lb">Vincita</div><div class="vl ${wCls}">${fmtEur(r.win)}</div></div>
-      </div>`;
+    rdiv.innerHTML = '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Combo: ' +
+      lastValidated.combo.map(n=>'<span class="pill pb">'+n+'</span>').join(' ') +
+      ' → est. #' + (r.draw?.id||'?') + ' (' + (r.draw?.time||'') + ')</div>' +
+      '<div class="sc-row">' +
+        '<div class="sc"><div class="lb">Base ✓</div><div class="vl">' + pillsB(r.hBase) + '</div></div>' +
+        '<div class="sc"><div class="lb">Extra ✓</div><div class="vl">' + pillsE(r.hExtra) + '</div></div>' +
+        '<div class="sc"><div class="lb">Vincita</div><div class="vl ' + wCls + '">' + fmtEur(r.win) + '</div></div>' +
+      '</div>';
   } else {
     rdiv.innerHTML = '<p style="color:var(--muted);font-size:13px">Nessuna previsione validata ancora.</p>';
   }
 }
+
+// Pool selection state
+const dashSelection = {};
+
+function togglePoolNum(el, type, n) {
+  if (!dashSelection[type]) dashSelection[type] = [];
+  const idx = dashSelection[type].indexOf(n);
+  if (idx >= 0) {
+    dashSelection[type].splice(idx, 1);
+    el.style.background = 'transparent';
+    // Get color from border
+    const borderColor = el.style.borderColor;
+    el.style.color = borderColor;
+  } else {
+    dashSelection[type].push(n);
+    el.style.background = el.style.borderColor;
+    el.style.color = '#fff';
+  }
+}
+
+function registerCustom(type, targetExt) {
+  const sel = dashSelection[type] || [];
+  if (sel.length < 2) { alert('Seleziona almeno 2 numeri dal pool'); return; }
+  const lastDraw = state.draws[0];
+  localGiocate.unshift({
+    id: Date.now(), ts: new Date().toISOString(),
+    nums: [...sel].sort((a,b)=>a-b),
+    extId: parseInt(targetExt),
+    lastKnownId: lastDraw?.id||0,
+    lastKnownDateKey: lastDraw?.dateKey||null,
+    stato: 'pending', hBase:[], hExtra:[], win:0,
+    fonte: type + '-custom'
+  });
+  saveLocalGiocate();
+  renderGiocate();
+  tab('giocate');
+  alert('✅ Registrata: [' + sel.sort((a,b)=>a-b).join(', ') + '] (' + type + ') per est. #' + targetExt);
+}
+
 
 // ── FREQUENZE ──────────────────────────────────────────────
 function renderFreq(sliderVal){
@@ -493,11 +522,11 @@ function renderPredictions(){
     const r=p.result;
     const wCls=r?(r.win>0?(r.win>=1000?'w3':r.win>=100?'w2':'w1'):'w0'):'';
     const szCol={4:'var(--acc)',5:'var(--grn)',6:'var(--amb)'}[p.played]||'var(--muted)';
-    const typeLabel=p.type==='cluster'
-      ?`<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 5px;border-radius:3px">cluster</span>`
-      :p.type==='fascia'
-      ?`<span style="font-size:10px;background:var(--green-bg);color:var(--grn);padding:1px 5px;border-radius:3px">fascia</span>`
-      :`<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 5px;border-radius:3px">std</span>`;
+    const typeLabel =
+      p.type==='cluster'      ? '<span style="font-size:10px;background:var(--red-bg);color:var(--red);padding:1px 6px;border-radius:3px">cluster</span>'
+      : p.type==='fascia-slim'  ? '<span style="font-size:10px;background:var(--green-bg);color:var(--grn);padding:1px 6px;border-radius:3px">fascia-slim</span>'
+      : p.type==='fascia-large' ? '<span style="font-size:10px;background:var(--amb-bg);color:var(--amb);padding:1px 6px;border-radius:3px">fascia-large</span>'
+      : '<span style="font-size:10px;background:var(--bg);color:var(--muted);padding:1px 6px;border-radius:3px">std</span>';
     return`<tr>
       <td style="font-size:11px;color:var(--muted)">${new Date(p.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
       <td style="font-weight:600;color:${szCol}">${p.played||5}n</td>
@@ -609,24 +638,31 @@ function addGiocataFromSize(size){
   alert(`✅ Registrata giocata ${size}n: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
 }
 
-function addGiocataFromFascia(size){
-  const fPreds = state.status.fasciaPredictions||{};
-  const pred = fPreds[size];
-  if(!pred?.combo){alert('Nessuna previsione fascia '+size+'n disponibile');return;}
-  const lastDraw=state.draws[0];
+function addGiocataByType(type) {
+  const s = state.status;
+  const predMap = {
+    'standard':    s.predictions?.[4],
+    'fascia-slim': s.fasciaSlimPred,
+    'fascia-large':s.fasciaLargePred,
+    'cluster':     s.clusterPredictions?.[4],
+  };
+  const pred = predMap[type];
+  if (!pred?.combo) { alert('Nessuna previsione ' + type + ' disponibile'); return; }
+  const lastDraw = state.draws[0];
   localGiocate.unshift({
-    id:Date.now(),ts:new Date().toISOString(),
-    nums:pred.combo,extId:pred.targetExtId,
-    lastKnownId:lastDraw?.id||0,lastKnownDateKey:lastDraw?.dateKey||null,
-    stato:'pending',hBase:[],hExtra:[],win:0,fonte:'fascia-pred-'+size+'n'
+    id: Date.now(), ts: new Date().toISOString(),
+    nums: pred.combo, extId: pred.targetExtId,
+    lastKnownId: lastDraw?.id||0, lastKnownDateKey: lastDraw?.dateKey||null,
+    stato: 'pending', hBase:[], hExtra:[], win:0, fonte: type + '-4n'
   });
   saveLocalGiocate();
   renderGiocate();
   tab('giocate');
-  alert(`✅ Registrata giocata fascia ${size}n: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
+  alert('✅ Registrata: [' + pred.combo.join(', ') + '] (' + type + ') per est. #' + pred.targetExtId);
 }
-
-function addGiocataFromCluster(size){
+function addGiocataFromSize(sz){ addGiocataByType('standard'); }
+function addGiocataFromCluster(sz){ addGiocataByType('cluster'); }
+function addGiocataFromFascia(sz){ addGiocataByType('fascia-slim'); }
   const clPreds = state.status.clusterPredictions||{};
   const pred = clPreds[size];
   if(!pred?.combo){alert('Nessuna previsione cluster '+size+'n disponibile');return;}
