@@ -368,10 +368,17 @@ function renderDashboard(){
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">' +
           '<div><div style="font-size:13px;font-weight:600;color:' + colVar + '">' + x.label + '</div>' +
           '<div style="font-size:11px;color:var(--muted)">' + x.sublabel + fasciaNote + '</div></div>' +
+        '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;align-items:center;margin-bottom:8px">' + poolHtml + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">' +
+          '<select id="tipo_' + x.type + '" style="font-size:11px;padding:3px 6px">' +
+            '<option value="extra" selected>Base+Extra (€2)</option>' +
+            '<option value="base">Solo Base (€1)</option>' +
+          '</select>' +
+          '<label style="font-size:11px">Est.# <input type="number" id="extid_' + x.type + '" placeholder="auto: ' + targetExt + '" style="width:80px;font-size:11px;padding:2px 5px"></label>' +
           '<button onclick="registerCustom(\'' + x.type + '\',' + targetExt + ')" ' +
           'style="font-size:11px;padding:4px 12px;background:' + colVar + ';color:#fff;border-color:' + colVar + '">📒 Registra selezionati</button>' +
         '</div>' +
-        '<div style="display:flex;flex-wrap:wrap;align-items:center;margin-bottom:6px">' + poolHtml + '</div>' +
         '<div style="font-size:10px;color:var(--muted)">Pieno = selezionato algoritmo · Vuoto = disponibile · 🟢 bordo = anche nel cluster</div>' +
       '</div>';
     });
@@ -450,23 +457,27 @@ function togglePoolNum(el, type, n) {
   }
 }
 
-function registerCustom(type, targetExt) {
+function registerCustom(type, defaultExt) {
   const sel = dashSelection[type] || [];
   if (sel.length < 2) { alert('Seleziona almeno 2 numeri dal pool'); return; }
   const lastDraw = state.draws[0];
+  const tipo = document.getElementById('tipo_' + type)?.value || 'extra';
+  const manualExt = parseInt(document.getElementById('extid_' + type)?.value);
+  const extId = manualExt || parseInt(defaultExt) || (lastDraw?.id + 1);
   localGiocate.unshift({
     id: Date.now(), ts: new Date().toISOString(),
     nums: [...sel].sort((a,b)=>a-b),
-    extId: parseInt(targetExt),
+    extId,
     lastKnownId: lastDraw?.id||0,
     lastKnownDateKey: lastDraw?.dateKey||null,
+    tipo,
     stato: 'pending', hBase:[], hExtra:[], win:0,
     fonte: type + '-custom'
   });
   saveLocalGiocate();
   renderGiocate();
   tab('giocate');
-  alert('✅ Registrata: [' + sel.sort((a,b)=>a-b).join(', ') + '] (' + type + ') per est. #' + targetExt);
+  alert('✅ Registrata: [' + [...sel].sort((a,b)=>a-b).join(', ') + '] (' + tipo + ') · est. #' + extId);
 }
 
 
