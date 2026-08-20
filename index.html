@@ -663,21 +663,6 @@ function addGiocataByType(type) {
 function addGiocataFromSize(sz){ addGiocataByType('standard'); }
 function addGiocataFromCluster(sz){ addGiocataByType('cluster'); }
 function addGiocataFromFascia(sz){ addGiocataByType('fascia-slim'); }
-  const clPreds = state.status.clusterPredictions||{};
-  const pred = clPreds[size];
-  if(!pred?.combo){alert('Nessuna previsione cluster '+size+'n disponibile');return;}
-  const lastDraw=state.draws[0];
-  localGiocate.unshift({
-    id:Date.now(),ts:new Date().toISOString(),
-    nums:pred.combo,extId:pred.targetExtId,
-    lastKnownId:lastDraw?.id||0,lastKnownDateKey:lastDraw?.dateKey||null,
-    stato:'pending',hBase:[],hExtra:[],win:0,fonte:'cluster-pred-'+size+'n'
-  });
-  saveLocalGiocate();
-  renderGiocate();
-  tab('giocate');
-  alert(`✅ Registrata giocata cluster ${size}n: [${pred.combo.join(', ')}] per est. #${pred.targetExtId}`);
-}
 
 function addGiocataFromPred(){addGiocataFromSize(5);}
 
