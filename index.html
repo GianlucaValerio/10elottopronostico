@@ -203,10 +203,20 @@ select,input[type=text],input[type=number]{font-size:13px;padding:5px 9px;border
       <h2>➕ Registra giocata reale</h2>
       <div class="row">
         <label>Numeri: <input type="text" id="gio-nums" placeholder="es. 5 18 31 43" style="width:160px"></label>
+        <label>Tipo: <select id="gio-tipo">
+          <option value="base">Base (€1)</option>
+          <option value="extra" selected>Base+Extra (€2)</option>
+        </select></label>
         <label>N° estrazioni: <select id="gio-n">
           <option value="1">1</option><option value="2" selected>2</option>
           <option value="3">3</option><option value="4">4</option><option value="5">5</option>
         </select></label>
+      </div>
+      <div class="row">
+        <label>Prima est. #:
+          <input type="number" id="gio-extid" style="width:80px" placeholder="auto">
+          <span style="font-size:11px;color:var(--muted)" id="gio-extid-hint"></span>
+        </label>
         <button class="pri" onclick="addGiocata()">➕ Aggiungi</button>
       </div>
       <div id="gio-info" style="font-size:12px;color:var(--muted)"></div>
@@ -259,6 +269,10 @@ async function loadAll() {
     renderPatterns();
     renderGiocate();
     startCountdown();
+
+    // Aggiorna hint ID estrazione nel form giocate
+    const hint = document.getElementById('gio-extid-hint');
+    if (hint && draws[0]) hint.textContent = '(auto: #' + (draws[0].id+1) + ')';
   } catch(e) {
     setStatus('err','Errore: ' + e.message);
     document.getElementById('sdot').className='dot derr';
@@ -624,20 +638,24 @@ function addGiocata(){
   const nums=raw.split(/[\s,]+/).map(Number).filter(n=>n>=1&&n<=90);
   if(nums.length<2){alert('Almeno 2 numeri validi');return;}
   const nEst=parseInt(document.getElementById('gio-n').value)||1;
+  const tipo=document.getElementById('gio-tipo').value;
   const lastDraw=state.draws[0];
   const lastId=lastDraw?lastDraw.id:0;
   const lastDateKey=lastDraw?lastDraw.dateKey:null;
+  const manualExt=parseInt(document.getElementById('gio-extid').value);
+  const firstExtId=manualExt||(lastId+1);
   for(let i=0;i<nEst;i++){
     localGiocate.unshift({
       id:Date.now()+i,ts:new Date().toISOString(),
-      nums,extId:lastId+1+i,lastKnownId:lastId,lastKnownDateKey:lastDateKey,
-      stato:'pending',hBase:[],hExtra:[],win:0
+      nums,extId:firstExtId+i,lastKnownId:lastId,lastKnownDateKey:lastDateKey,
+      tipo,stato:'pending',hBase:[],hExtra:[],win:0,fonte:'manuale'
     });
   }
   saveLocalGiocate();
   document.getElementById('gio-nums').value='';
+  document.getElementById('gio-extid').value='';
   renderGiocate();
-  alert(`✅ Registrate ${nEst} giocata${nEst>1?'e':''} · est. #${lastId+1}${nEst>1?'→#'+(lastId+nEst):''}`);
+  alert(`✅ Registrate ${nEst} giocata${nEst>1?'e':''} (${tipo}) · est. #${firstExtId}${nEst>1?' → #'+(firstExtId+nEst-1):''}`);
 }
 
 function addGiocataFromSize(size){
@@ -695,7 +713,8 @@ function autoValidateGiocate(){
     g.hBase=g.nums.filter(n=>draw.base.includes(n));
     g.hExtra=g.nums.filter(n=>draw.extra.includes(n));
     const p=getPrize(g.nums.length,g.hBase.length,g.hExtra.length);
-    g.win=Math.max(p.base,p.extra);
+    // Se tipo = 'base' prende solo il premio base, altrimenti il massimo
+    g.win = g.tipo==='base' ? p.base : Math.max(p.base,p.extra);
     g.stato='validata';
     changed=true;
   });
@@ -1040,7 +1059,7 @@ async function resetPredType(type) {
   if (!confirm('Vuoi azzerare ' + label + '? Il contatore riparte da zero.')) return;
   try {
     const r = await fetch(WORKER + '?action=reset-predictions&type=' + type + '&secret=' + SECRET);
-    const data = await r.json(); 
+    const data = await r.json();
     if (data.ok) {
       alert('✅ Rimossi ' + data.removed + ' previsioni · Rimaste: ' + data.remaining);
       await loadAll();
